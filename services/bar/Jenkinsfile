@@ -1,0 +1,64 @@
+stage('bar') {
+  stage('make tests') {
+    githubNotify context: 'bar/tests', status: 'PENDING', description: ''
+    script {
+      try{
+        awsCodeBuild projectName: 'platform-make',
+        region: 'us-west-1',
+        credentialsType: 'keys',
+        credentialsId: 'whatever',
+        sourceVersion: env.GIT_COMMIT,
+        sourceControlType: 'project',
+        envVariables: "[{SERVICE, bar}, {TARGET, test}]"
+      }
+      catch (err) {
+        githubNotify context: 'bar/tests', status: 'FAILURE', description: ''
+        throw(err)
+      }
+    }
+    githubNotify context: 'bar/tests', status: 'SUCCESS', description: ''
+  }
+
+  stage('make docker') {
+    githubNotify context: 'bar/docker', status: 'PENDING', description: ''
+    script {
+      try{
+        awsCodeBuild projectName: 'platform-make',
+        region: 'us-west-1',
+        credentialsType: 'keys',
+        credentialsId: 'whatever',
+        sourceVersion: env.GIT_COMMIT,
+        sourceControlType: 'project',
+        envVariables: "[{SERVICE, bar}, {TARGET, docker}]"
+      }
+      catch (err) {
+        githubNotify context: 'bar/docker', status: 'FAILURE', description: ''
+        throw(err)
+      }
+    }
+    githubNotify context: 'bar/docker', status: 'SUCCESS', description: ''
+  }
+
+  stage('make deploy') {
+    script {
+      if (env.BRANCH_NAME == "master") {
+        githubNotify context: 'bar/ecs', status: 'PENDING', description: ''
+        try{
+          awsCodeBuild projectName: 'platform-make',
+          region: 'us-west-1',
+          credentialsType: 'keys',
+          credentialsId: 'whatever',
+          sourceVersion: env.GIT_COMMIT,
+          sourceControlType: 'project',
+          envVariables: "[{SERVICE, bar}, {TARGET, deploy}]"
+
+          githubNotify context: 'bar/ecs', status: 'SUCCESS', description: ''
+        }
+        catch (err) {
+          githubNotify context: 'bar/ecs', status: 'FAILURE', description: ''
+          throw(err)
+        }
+      }
+    }
+  }
+}
